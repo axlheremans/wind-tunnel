@@ -7,7 +7,7 @@ Step = 16
 FrameSkip = 3
 
 Alpha_flow = 0.45
-Alpha_mag = 0.80   # 🔥 licht stabieler dan before
+Alpha_mag = 0.80
 # -------------------
 
 
@@ -31,8 +31,6 @@ def process(cap, prev_frame, prev_flow, prev_mag):
         return prev_frame, prev_flow, prev_mag
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-    # 🔥 LIGHT blur (x1.5 level, niet overkill)
     gray = cv2.GaussianBlur(gray, (5, 5), 0)
 
     if prev_frame is None:
@@ -50,7 +48,6 @@ def process(cap, prev_frame, prev_flow, prev_mag):
         flags=0
     )
 
-    # (geen flow blur → houdt detail)
     if prev_flow is None:
         smooth_flow = flow
     else:
@@ -61,31 +58,44 @@ def process(cap, prev_frame, prev_flow, prev_mag):
         smooth_flow[..., 1]
     )
 
-    # -------------------
-    # MAGNITUDE (x1.5 smoother)
+    # =====================================================
+    # 🔥 MAGNITUDE — SHARPER VERSION
+    # =====================================================
+
     mag = cv2.normalize(magnitude, None, 0, 255, cv2.NORM_MINMAX)
     mag = mag.astype(np.uint8)
 
-    if prev_mag is not None:
-        mag = cv2.addWeighted(mag, 0.8, prev_mag, 0.2, 0)
+    # 🔥 lichte smoothing (minder dan before)
+    mag = cv2.GaussianBlur(mag, (3, 3), 0)
 
-    mag = cv2.GaussianBlur(mag, (5, 5), 0)
+    # 🔥 CONTRAST BOOST (CLAHE = veel scherper)
+    clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+    mag = clahe.apply(mag)
 
     cv2.imshow("Flow magnitude", mag)
 
-    # -------------------
-    # HSV (iets cleaner maar niet overprocessed)
+    # =====================================================
+    # 🔥 HSV — SHARPER V CHANNEL
+    # =====================================================
+
     hsv = np.zeros_like(frame)
     hsv[..., 1] = 255
+
     hsv[..., 0] = angle * 180 / np.pi / 2
 
-    hsv[..., 2] = cv2.normalize(magnitude, None, 0, 255, cv2.NORM_MINMAX)
+    hsv_mag = cv2.normalize(magnitude, None, 0, 255, cv2.NORM_MINMAX)
+    hsv_mag = hsv_mag.astype(np.uint8)
+
+    # 🔥 minder blur = meer detail
+    hsv_mag = cv2.GaussianBlur(hsv_mag, (3, 3), 0)
+
+    hsv[..., 2] = hsv_mag
 
     flow_vis = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
     cv2.imshow("Flow HSV", flow_vis)
 
     # -------------------
-    # PIJLEN (unchanged - goed zoals je zei)
+    # PIJLEN (unchanged)
     vis = frame.copy()
     h, w = gray.shape
 
@@ -111,7 +121,7 @@ def process(cap, prev_frame, prev_flow, prev_mag):
 
 
 def main():
-    print("Wind Tunnel v3.5 (1.5x tuned)")
+    print("Wind Tunnel v3.6 (sharp magnitude + HSV)")
 
     cap = init_camera()
 
