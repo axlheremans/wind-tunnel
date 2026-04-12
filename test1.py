@@ -1,47 +1,135 @@
-# Importing libraries
 import cv2
 import numpy as np
 
-# Capturing the video file 0 for videocam else you can provide the url
-capture = cv2.VideoCapture(1)
+# -------------------
+CameraIndex = 1
+Step = 10              # minder pijlen = duidelijker
+FrameSkip = 3          # grotere beweging zichtbaar maken
+Alpha = 0.7            # temporal smoothing
+# -------------------
 
-# Reading the first frame
-_, frame1 = capture.read()
-# Convert to gray scale
-prvs = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
-# Create mask
-hsv_mask = np.zeros_like(frame1)
-# Make image saturation to a maximum value
-hsv_mask[..., 1] = 255
+def init_camera():
+    cap = cv2.VideoCapture(CameraIndex)
+    cap.set(cv2.CAP_PROP_FPS, 60)
 
-# Till you scan the video
-while (1):
+    ret, frame = cap.read()
+    if not ret:
+        print("ERROR: Camera niet verbonden")
+        return None
+    return cap
 
-    # Capture another frame and convert to gray scale
-    _, frame2 = capture.read()
-    next = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
 
-    # Optical flow is now calculated
-    flow = cv2.calcOpticalFlowFarneback(prvs, next, None, 0.5, 3, 15, 3, 5, 1.2, 0)
-    # Compute magnite and angle of 2D vector
-    mag, ang = cv2.cartToPolar(flow[..., 0], flow[..., 1])
-    # Set image hue value according to the angle of optical flow
-    hsv_mask[..., 0] = ang * 180 / np.pi / 2
-    # Set value as per the normalized magnitude of optical flow
-    hsv_mask[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
-    # Convert to rgb
-    rgb_representation = cv2.cvtColor(hsv_mask, cv2.COLOR_HSV2BGR)
+def process(cap, prev_frame, prev_mag):
+    ret, frame = cap.read()
+    if not ret:
+        return prev_frame, prev_mag
 
-    cv2.imshow('frame2', rgb_representation)
-    kk = cv2.waitKey(20) & 0xff
-    # Press 'e' to exit the video
-    if kk == ord('e'):
-        break
-    # Press 's' to save the video
-    elif kk == ord('s'):
-        cv2.imwrite('Optical_image.png', frame2)
-        cv2.imwrite('HSV_converted_image.png', rgb_representation)
-    prvs = next
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-capture.release()
-cv2.destroyAllWindows()
+    # 🔧 blur input → minder noise
+    gray = cv2.GaussianBlur(gray, (11, 11), 0)
+
+    if prev_frame is None:
+        return gray, prev_mag
+
+    # 🔥 optical flow
+    flow = cv2.calcOpticalFlowFarneback(
+        prev_frame, gray, None,
+        pyr_scale=0.5,
+        levels=4,
+        winsize=9,
+        iterations=5,
+        poly_n=7,
+        poly_sigma=1.5,
+        flags=0
+    )
+
+    # 🔧 flow smoothing (belangrijk)
+    flow[..., 0] = cv2.GaussianBlur(flow[..., 0], (9, 9), 0)
+    flow[..., 1] = cv2.GaussianBlur(flow[..., 1], (9, 9), 0)
+
+    # 🔥 magnitude & angle
+    magnitude, angle = cv2.cartToPolar(flow[..., 0], flow[..., 1])
+
+    # 🔧 temporal smoothing (super belangrijk)
+    if prev_mag is None:
+        smooth_mag = magnitude
+    else:
+        smooth_mag = Alpha * prev_mag + (1 - Alpha) * magnitude
+
+    # 🔧 threshold → noise weg
+    mean_mag = np.mean(smooth_mag)
+    mask = smooth_mag > (mean_mag * 1.5)
+
+    # -------------------
+    # 🎨 HSV FLOW VISUALISATIE (beste!)
+    hsv = np.zeros_like(frame)
+    hsv[..., 1] = 255
+
+    hsv[..., 0] = angle * 180 / np.pi / 2
+    hsv[..., 2] = cv2.normalize(smooth_mag, None, 0, 255, cv2.NORM_MINMAX)
+
+    flow_vis = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
+
+    cv2.imshow("Flow HSV", flow_vis)
+
+    # -------------------
+    # 🧭 PIJLEN (alleen sterke flow)
+    vis = frame.copy()
+    h, w = gray.shape
+
+    for y in range(0, h, Step):
+        for x in range(0, w, Step):
+            if mask[y, x]:
+                fx, fy = flow[y, x]
+                cv2.arrowedLine(
+                    vis,
+                    (x, y),
+                    (int(x + fx * 5), int(y + fy * 5)),
+                    (0, 255, 0),
+                    1,
+                    tipLength=0.2
+                )
+
+    cv2.imshow("Flow vectors", vis)
+
+    # -------------------
+    # 🔥 magnitude debug (cleaner)
+    mag_vis = cv2.normalize(smooth_mag, None, 0, 255, cv2.NORM_MINMAX)
+    mag_vis = mag_vis.astype(np.uint8)
+    mag_vis = cv2.GaussianBlur(mag_vis, (9, 9), 0)
+
+    cv2.imshow("Flow magnitude", mag_vis)
+
+    return gray, smooth_mag
+
+
+def main():
+    print("Wind Tunnel v2.0")
+
+    cap = init_camera()
+    prev_frame = None
+    prev_mag = None
+
+    frame_count = 0
+
+    while True:
+        frame_count += 1
+
+        # 🔥 frame skipping → grotere beweging
+        if frame_count % FrameSkip != 0:
+            cap.read()
+            continue
+
+        prev_frame, prev_mag = process(cap, prev_frame, prev_mag)
+
+        key = cv2.waitKey(1)
+        if key == 27:
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    main()

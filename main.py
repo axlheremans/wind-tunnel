@@ -6,7 +6,7 @@ import numpy as np
 #-------------------
 CameraIndex = 1
 Scale = 1
-Step = 8
+Step = 4
 TurbTreshold = 2
 Counter = 0
 #-------------------
@@ -41,14 +41,17 @@ def process(cap, prev_frame=None, ):
         return gray
 
     #optical flow
+    gray = cv2.GaussianBlur(gray, (11, 11), 0)
+    prev_frame = cv2.GaussianBlur(prev_frame, (11, 11), 0)
+
     flow = cv2.calcOpticalFlowFarneback(
         prev_frame,gray, None,
         pyr_scale=0.5,
-        levels=3,
-        winsize = 15,
-        iterations=3,
-        poly_n=5,
-        poly_sigma=1.2,
+        levels=4,
+        winsize = 9,
+        iterations=5,
+        poly_n=7,
+        poly_sigma=1.5,
         flags=0
     )
 
