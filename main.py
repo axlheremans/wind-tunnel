@@ -7,7 +7,7 @@ Step = 24
 FrameSkip = 3
 
 Alpha_flow = 0.55
-Alpha_mag = 0.90   # 🔥 licht stabieler dan before
+Alpha_mag = 0.90
 # -------------------
 
 
@@ -32,7 +32,7 @@ def process(cap, prev_frame, prev_flow, prev_mag):
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    # 🔥 LIGHT blur (x1.5 level, niet overkill)
+    # lichte blur
     gray = cv2.GaussianBlur(gray, (5, 5), 0)
 
     if prev_frame is None:
