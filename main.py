@@ -3,7 +3,7 @@ import numpy as np
 
 # -------------------
 CameraIndex = 1
-Step = 32
+Step = 24
 FrameSkip = 3
 
 Alpha_flow = 0.55
@@ -42,7 +42,7 @@ def process(cap, prev_frame, prev_flow, prev_mag):
     flow = cv2.calcOpticalFlowFarneback(
         prev_frame, gray, None,
         pyr_scale=0.5,
-        levels=4,
+        levels=5,
         winsize=9,
         iterations=4,
         poly_n=7,
