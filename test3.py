@@ -3,19 +3,19 @@ import numpy as np
 
 # -------------------
 CameraIndex = 1
-Step = 16
+Step = 32
 FrameSkip = 3
 
-Alpha_flow = 0.45
-Alpha_mag = 0.80   # 🔥 licht stabieler dan before
+Alpha_flow = 0.55
+Alpha_mag = 0.90   # 🔥 licht stabieler dan before
 # -------------------
 
 
 def init_camera():
     cap = cv2.VideoCapture(CameraIndex)
 
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 720)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 360)
     cap.set(cv2.CAP_PROP_FPS, 60)
 
     ret, frame = cap.read()
@@ -102,7 +102,7 @@ def process(cap, prev_frame, prev_flow, prev_mag):
                     (int(x + fx * 8), int(y + fy * 8)),
                     (0, 255, 0),
                     1,
-                    tipLength=0.25
+                    tipLength=0.12
                 )
 
     cv2.imshow("Flow vectors", vis)

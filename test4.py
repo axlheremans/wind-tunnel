@@ -3,19 +3,18 @@ import numpy as np
 
 # -------------------
 CameraIndex = 1
-Step = 16
+Step = 32          # iets strakker dan 48
 FrameSkip = 3
 
 Alpha_flow = 0.45
-Alpha_mag = 0.80
 # -------------------
 
 
 def init_camera():
     cap = cv2.VideoCapture(CameraIndex)
 
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 512)
     cap.set(cv2.CAP_PROP_FPS, 60)
 
     ret, frame = cap.read()
@@ -25,22 +24,21 @@ def init_camera():
     return cap
 
 
-def process(cap, prev_frame, prev_flow, prev_mag):
+def process(cap, prev_frame, prev_flow):
     ret, frame = cap.read()
     if not ret:
-        return prev_frame, prev_flow, prev_mag
+        return prev_frame, prev_flow
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     gray = cv2.GaussianBlur(gray, (5, 5), 0)
 
     if prev_frame is None:
-        return gray, prev_flow, prev_mag
+        return gray, prev_flow
 
-    # -------------------
     flow = cv2.calcOpticalFlowFarneback(
         prev_frame, gray, None,
         pyr_scale=0.5,
-        levels=4,
+        levels=5,
         winsize=9,
         iterations=4,
         poly_n=7,
@@ -58,36 +56,16 @@ def process(cap, prev_frame, prev_flow, prev_mag):
         smooth_flow[..., 1]
     )
 
-    # =====================================================
-    # 🔥 MAGNITUDE — SHARPER VERSION
-    # =====================================================
-
-    mag = cv2.normalize(magnitude, None, 0, 255, cv2.NORM_MINMAX)
-    mag = mag.astype(np.uint8)
-
-    # 🔥 lichte smoothing (minder dan before)
-    mag = cv2.GaussianBlur(mag, (3, 3), 0)
-
-    # 🔥 CONTRAST BOOST (CLAHE = veel scherper)
-    clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
-    mag = clahe.apply(mag)
-
-    cv2.imshow("Flow magnitude", mag)
-
-    # =====================================================
-    # 🔥 HSV — SHARPER V CHANNEL
-    # =====================================================
-
+    # -------------------
+    # HSV
     hsv = np.zeros_like(frame)
     hsv[..., 1] = 255
-
     hsv[..., 0] = angle * 180 / np.pi / 2
 
     hsv_mag = cv2.normalize(magnitude, None, 0, 255, cv2.NORM_MINMAX)
     hsv_mag = hsv_mag.astype(np.uint8)
-
-    # 🔥 minder blur = meer detail
     hsv_mag = cv2.GaussianBlur(hsv_mag, (3, 3), 0)
+    hsv_mag = cv2.convertScaleAbs(hsv_mag, alpha=1.3, beta=0)
 
     hsv[..., 2] = hsv_mag
 
@@ -95,39 +73,40 @@ def process(cap, prev_frame, prev_flow, prev_mag):
     cv2.imshow("Flow HSV", flow_vis)
 
     # -------------------
-    # PIJLEN (unchanged)
+    # PIJLEN (cleaner + minder overlap)
     vis = frame.copy()
     h, w = gray.shape
 
-    threshold = 0.3
+    threshold = 0.6   # 🔥 belangrijk: filtert rommel
 
     for y in range(0, h, Step):
         for x in range(0, w, Step):
             fx, fy = smooth_flow[y, x]
 
-            if fx * fx + fy * fy > threshold:
+            mag2 = fx * fx + fy * fy
+
+            if mag2 > threshold:
                 cv2.arrowedLine(
                     vis,
                     (x, y),
-                    (int(x + fx * 8), int(y + fy * 8)),
+                    (int(x + fx * 3), int(y + fy * 5)),  # 🔥 korter
                     (0, 255, 0),
                     1,
-                    tipLength=0.25
+                    tipLength=0.2
                 )
 
     cv2.imshow("Flow vectors", vis)
 
-    return gray, smooth_flow, mag
+    return gray, smooth_flow
 
 
 def main():
-    print("Wind Tunnel v3.6 (sharp magnitude + HSV)")
+    print("Wind Tunnel v3.7 (clean arrows)")
 
     cap = init_camera()
 
     prev_frame = None
     prev_flow = None
-    prev_mag = None
 
     frame_count = 0
 
@@ -138,11 +117,10 @@ def main():
             cap.read()
             continue
 
-        prev_frame, prev_flow, prev_mag = process(
+        prev_frame, prev_flow = process(
             cap,
             prev_frame,
-            prev_flow,
-            prev_mag
+            prev_flow
         )
 
         key = cv2.waitKey(1)

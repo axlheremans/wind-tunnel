@@ -3,7 +3,7 @@ import numpy as np
 
 # -------------------
 CameraIndex = 1
-Step = 10
+Step = 32
 FrameSkip = 3
 
 Alpha_flow = 0.45
