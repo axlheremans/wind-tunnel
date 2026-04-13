@@ -27,7 +27,7 @@ ret, old_frame = cap.read()
 old_gray = cv2.cvtColor(old_frame, cv2.COLOR_BGR2GRAY)
 
 step = 15
-frame_skip = 2
+frame_skip = 1
 
 smoothed_flow = None
 alpha = 0.2
@@ -194,7 +194,7 @@ while True:
                     (end_x, end_y),
                     color,
                     2,
-                    tipLength=0.25
+                    tipLength=0.05
                 )
 
         snapshot_img = cv2.resize(snapshot_img, (w, h))
