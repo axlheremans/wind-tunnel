@@ -33,7 +33,7 @@ smoothed_flow = None
 alpha = 0.2
 turbulence_sensitivity = 1.5
 
-# 🔥 ECHTE TIJD-BUFFER (geen fps guess meer)
+#tijd tussen average snapshots
 ANALYSIS_TIME = 2.0  # seconden
 
 flow_buffer = deque()
@@ -121,7 +121,7 @@ while True:
             cv2.arrowedLine(frame, (x, y), (end_x, end_y), color, 1, tipLength=0.15)
 
     # -------------------------
-    # ECHTE TIJDBUFFER UPDATE
+    # TIJDBUFFER UPDATE
     # -------------------------
     flow_buffer.append(smoothed_flow.copy())
     time_buffer.append(time.time())
@@ -132,7 +132,7 @@ while True:
         flow_buffer.popleft()
 
     # -------------------------
-    # SNAPSHOT ELKE 10s (of ANALYSIS_TIME)
+    # SNAPSHOT ELKE x seconden
     # -------------------------
     if time.time() - last_snapshot_time > ANALYSIS_TIME and len(flow_buffer) > 5:
 
@@ -172,7 +172,7 @@ while True:
                 t = 0.5 * mag_norm + 0.5 * curvature
                 t = min(t * turbulence_sensitivity, 1.0)
 
-                # 🔴 alleen turbulentie tonen
+                # alleen turbulentie tonen
                 if t < 0.5:
                     continue
 
