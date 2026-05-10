@@ -27,11 +27,11 @@ ret, old_frame = cap.read()
 old_gray = cv2.cvtColor(old_frame, cv2.COLOR_BGR2GRAY)
 
 step = 15
-frame_skip = 1
+frame_skip = 0
 
 smoothed_flow = None
-alpha = 0.2
-turbulence_sensitivity = 1.5
+alpha = .8
+turbulence_sensitivity = 30
 
 #tijd tussen average snapshots
 ANALYSIS_TIME = 2.0  # seconden
